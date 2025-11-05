@@ -1,6 +1,10 @@
+Great — thanks for confirming. I’ll proceed with the full Markdown document. Below is your requested guide for Azure API Management Self‑Hosted Gateway (SHGW). You can copy-paste it; I included headers, diagrams (Mermaid), details, and citations to Microsoft doc sources.
+
+---
+
 # Azure API Management – Self-Hosted Gateway (SHGW)
 
-A hybrid / on-premises deployment guide.
+*A hybrid / on-premises deployment guide*
 
 ## Executive Summary
 
@@ -45,7 +49,7 @@ flowchart LR
 
 ### Key notes
 
-* Self-hosted gateway is packaged as a **Linux-based Docker container image** (v2) and is intended for containerised environments (Kubernetes, Docker, etc). ([learn.microsoft.com][1])
+* Self-hosted gateway is packaged as a **Linux-based Docker container image** and is intended for containerised environments (Kubernetes, Docker, or any other container orchestration solution). ([learn.microsoft.com][1])
 * It supports hybrid/edge/on-premises deployment by placing the gateway in the same environment as backend services to reduce latency and data egress costs. ([learn.microsoft.com][1])
 
 ## Prerequisites
@@ -53,7 +57,7 @@ flowchart LR
 ### APIM Tier Support
 
 * Self-Hosted Gateway is supported **only** in the classic **Developer** and **Premium** tiers of API Management. ([learn.microsoft.com][11])
-* It is **not available** in classic Basic, classic Standard, **Consumption**, nor in any **v2 tiers (Basic v2, Standard v2, Premium v2)** as of November 2025 – v2 tier documentation lists “Self-hosted gateway” under current gateway limitations. ([learn.microsoft.com][12])
+* It is **not available** in classic Basic, classic Standard, **Consumption**, nor in any **v2 tiers (Basic v2, Standard v2, Premium v2)** – v2 tier documentation lists "Self-hosted gateway" under current gateway limitations. ([learn.microsoft.com][12])
 * The APIM instance must already exist and be configured; you must first provision a *gateway resource* in that instance. ([learn.microsoft.com][2])
 
 ### Host / Container Runtime Requirements
@@ -189,11 +193,17 @@ sequenceDiagram
 ## Policy Support and Limitations
 
 * According to Microsoft documentation, SHGW supports **all available policies in policy definitions**, **except** some listed limitations. ([learn.microsoft.com][8])
-* Example limitations:
+* Unsupported policies and features on self-hosted gateway include:
 
-  * GraphQL resolvers & GraphQL validation: Not supported on SHGW. ([learn.microsoft.com][8])
-  * Get authorization context policy: Not supported. ([learn.microsoft.com][8])
-* Statement: *“Some policies are supported and some are not — you should review the policy reference for SHGW limitations.”*
+  * **GraphQL resolvers & GraphQL validation**: Not supported on SHGW. ([learn.microsoft.com][8])
+  * **Get authorization context policy**: Not supported. ([learn.microsoft.com][8])
+  * **Dapr integration policies**: Not supported.
+  * **Service Bus integration policies**: Not supported.
+  * **Managed identity authentication**: Not supported.
+  * **Azure OpenAI semantic caching**: Not supported.
+  * **Credential manager**: Not supported.
+* Note: Configured policies that aren't supported by the self-hosted gateway are skipped during policy execution.
+* Statement: *"Some policies are supported and some are not — you should review the policy reference for SHGW limitations."*
 
 ---
 
@@ -211,7 +221,7 @@ APPLIES TO: Classic Developer & Premium tiers only. ([learn.microsoft.com][11])
 
 **Unsupported Tags**: `beta`, `preview`.
 
-**Microsoft Support Covers**: Config endpoint availability, gateway image bugs/perf/security patches, supported OSS integrations (OpenTelemetry, Dapr). ([learn.microsoft.com][11])
+**Microsoft Support Covers**: Config endpoint availability, gateway image bugs/perf/security patches, supported OSS integrations (OpenTelemetry). ([learn.microsoft.com][11])
 
 **Not Covered**: Custom ingress/service mesh design, third‑party tooling outside supported list, deep troubleshooting of custom CNIs, firewalls, or network meshes beyond verifying gateway↔config endpoint connectivity. ([learn.microsoft.com][11])
 
@@ -225,7 +235,7 @@ APPLIES TO: Classic Developer & Premium tiers only. ([learn.microsoft.com][11])
 
 ### Pricing Fundamentals
 
-The Azure API Management pricing page indicates the **Self-Hosted Gateway feature is only available in classic Developer and Premium tiers**; all classic tiers where it appears list it with *no additional charge beyond the tier’s base price*. ([azure.microsoft.com][10])
+The Azure API Management pricing page indicates the **Self-Hosted Gateway feature is only available in classic Developer and Premium tiers**. In the **Developer tier**, the self-hosted gateway feature is available at **no additional cost** (unlimited deployments but restricted to a single gateway replica). In the **Premium tier**, the self-hosted gateway feature is available at an **additional cost**. ([azure.microsoft.com][10])
 
 Classic v2 tiers (Basic v2, Standard v2, Premium v2) explicitly list “Self-hosted gateway: No” (unsupported), so there is currently **no v2 pricing dimension** for SHGW deployments. ([learn.microsoft.com][12])
 
@@ -234,7 +244,7 @@ Classic v2 tiers (Basic v2, Standard v2, Premium v2) explicitly list “Self-hos
 | Cost Component | Description | Applies When |
 | -------------- | ----------- | ------------ |
 | APIM Tier Subscription | Base monthly cost for chosen APIM instance tier (Developer for dev/test, Premium for enterprise). | Always (per APIM instance) |
-| Self-Hosted Gateway Feature | Included at no extra charge in Developer & Premium classic tiers (unlimited deployments). | Developer / Premium classic |
+| Self-Hosted Gateway Feature | Developer: No additional cost (single replica limit). Premium: Additional cost per gateway. | Developer / Premium classic |
 | Container / VM Infra | Compute, storage, and networking for SHGW replicas (on-prem, AKS, Arc, other clouds). | Each deployment |
 | Telemetry & Logs | Log Analytics / Application Insights ingestion + retention. Consider sampling to optimize. | If sending telemetry |
 | Network Egress | Data leaving on-prem / VNet to Azure or cross-region; depends on traffic & backend placement. | When crossing boundaries |
