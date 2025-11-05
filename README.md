@@ -47,30 +47,47 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-  %% Azure APIM Self-Hosted Gateway deployed in AKS (image-derived)
-  %% Left: Managed Kubernetes (AKS) cluster; Right: Azure API Management control/gateway plane
+  %% Simplified AKS deployment diagram to avoid parse errors
+  subgraph AKS["Managed Kubernetes (AKS)"]
+    PodA["App Pod"]
+    PodB["App Pod"]
+    MicroSvc["AKS Service (Microservice)"]
+    SHGW_AKS["Self-Hosted Gateway"]
+    PodA --> MicroSvc
+    PodB --> MicroSvc
+    SHGW_AKS --> MicroSvc
+  end
+  subgraph Azure["Azure API Management"]
+    APIMGW["API Management Gateway"]
+  end
+
+  SHGW_AKS -->|HTTPS 443: config & telemetry (outbound)| APIMGW
+  APIMGW -->|Config updates| SHGW_AKS
+
+  %% Fallback: remove styling/classes to improve compatibility; add them only if renderer supports
+```
+
+Alternative styled version (if your Mermaid renderer supports custom classes):
+
+```mermaid
+flowchart LR
   subgraph AKS[Managed Kubernetes (AKS)]
-    subgraph Pods[Application Pods]
-      PodA[(App Pod)]
-      PodB[(App Pod)]
-    end
+    PodA[(App Pod)]
+    PodB[(App Pod)]
     MicroSvc[AKS Service (Microservice)]
     SHGW_AKS[APIM Self-Hosted Gateway]
+    PodA --> MicroSvc
+    PodB --> MicroSvc
+    SHGW_AKS --> MicroSvc
   end
   subgraph Azure[Azure API Management]
     APIMGW[API Management Gateway]
   end
-
-  PodA --> MicroSvc
-  PodB --> MicroSvc
-  SHGW_AKS --> MicroSvc
   SHGW_AKS -->|Outbound config & telemetry| APIMGW
   APIMGW -->|Policies & config updates| SHGW_AKS
-
-  %% Styling
   classDef aks fill:#f5f5ff,stroke:#6e44ad,color:#000
   classDef azure fill:#e3f2fd,stroke:#0366d6,color:#000
-  class AKS,Pods,MicroSvc,SHGW_AKS aks
+  class AKS,PodA,PodB,MicroSvc,SHGW_AKS aks
   class Azure,APIMGW azure
 ```
 
