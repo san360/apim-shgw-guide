@@ -1,7 +1,3 @@
-Great — thanks for confirming. I’ll proceed with the full Markdown document. Below is your requested guide for Azure API Management Self‑Hosted Gateway (SHGW). You can copy-paste it; I included headers, diagrams (Mermaid), details, and citations to Microsoft doc sources.
-
----
-
 # Azure API Management – Self-Hosted Gateway (SHGW)
 
 *A hybrid / on-premises deployment guide*
@@ -47,6 +43,28 @@ flowchart LR
   class SHGW,Client,Backend onprem
 ```
 
+#### Containerized deployment view (single minimal diagram)
+
+```mermaid
+flowchart LR
+  %% Minimal K8S + APIM depiction (Mermaid flowchart)
+  %% Only one diagram to avoid parse conflicts
+  subgraph K8S[Kubernetes]
+    PodA[App Pod]
+    PodB[App Pod]
+    MicroSvc[K8s Service]
+    SHGW[Self-Hosted Gateway]
+    PodA --> MicroSvc
+    PodB --> MicroSvc
+    SHGW --> MicroSvc
+  end
+  Firewall[Azure Firewall/NVA]
+  APIM[Azure API Management]
+  SHGW -->|HTTPS 443 outbound config & telemetry| Firewall
+  SHGW -->|Config Pull| Firewall
+  Firewall -->|Firewall Rules| APIM
+```
+
 ### Key notes
 
 * Self-hosted gateway is packaged as a **Linux-based Docker container image** and is intended for containerised environments (Kubernetes, Docker, or any other container orchestration solution). ([learn.microsoft.com][1])
@@ -63,15 +81,14 @@ flowchart LR
 ### Host / Container Runtime Requirements
 
 * Primary support: **Linux container environments** (Docker, Kubernetes). SHGW is provided as a Linux-based container. ([learn.microsoft.com][1])
-* Minimum baseline sizing suggestion: start with 2 vCPUs and 2–4 GB RAM, then benchmark and scale replicas based on throughput & latency targets. (Guided by production deployment considerations – see [Kubernetes production][6])
+* Minimum baseline sizing suggestion: start with 2 vCPUs and 2 GB RAM, then benchmark and scale replicas based on throughput & latency targets. (Guided by production deployment considerations – see [Kubernetes production][6])
 
 ### Network & Connectivity
 
 * The self-hosted gateway container must have outbound HTTPS (TCP 443) connectivity to Azure API Management configuration endpoints to pull API/policy configuration and send telemetry. ([learn.microsoft.com][13])
 * Only outbound connectivity from the self-hosted gateway to Azure is required; Azure does not initiate inbound connections to the gateway for config sync.
-* Proper DNS resolution of Azure API Management endpoint hostnames is required (for example regional configuration endpoints). If using custom DNS, ensure those names resolve internally.
-* When deployed in a private network / VNet / behind a firewall, allow outbound 443 and required proxy settings (HTTP_PROXY / HTTPS_PROXY / NO_PROXY) if an egress proxy is used.
-* References to the managed APIM instance are solely for the purpose of configuration & telemetry exchange; this section concerns the self-hosted gateway runtime only.
+* Proper DNS resolution of Azure API Management configuration endpoint hostnames is required.
+* When deployed in a private network / VNet / behind a firewall, allow outbound 443 and required proxy settings (HTTP_PROXY / HTTPS_PROXY / NO_PROXY) if an egress proxy is used. (SHGW could also be deployed in AKS/ACA/Appservice)
 
 ### Provisioning a Gateway Resource
 
@@ -114,7 +131,6 @@ Since your focus is containerised environments, here are the supported types:
 
 * **Access Token**: A gateway access key/token is generated and used by the SHGW to authenticate to APIM’s configuration endpoint. The token expires (typically 30 days) and must be refreshed. ([learn.microsoft.com][7])
 * **Azure Entra ID (AAD) App Authentication**: Supported alternative to access token. You can create an Azure Entra app (service principal), assign custom roles (Gateway Configuration Reader, etc), and use that for auth. This enables longer-lived secrets and better identity/security. ([learn.microsoft.com][4])
-* Other IdPs: The documentation shows support only for Azure Entra/ AAD for the control‐plane auth; no generic other IdP is documented for SHGW → APIM. So you should assume AAD only.
 
 ### 2) Client → Gateway (Data Plane)
 
@@ -152,8 +168,7 @@ sequenceDiagram
 
 ### Secrets / Certificate Rotation
 
-* When using Azure Entra auth, you deploy a client secret or certificate for the service principal; ensure rotation of those secrets. ([learn.microsoft.com][4])
-* Consider mounting secrets/certificates with minimal privileges (Kubernetes secrets, Azure Key Vault + CSI, etc).
+* When using Azure Entra auth, you deploy a client secret. ([learn.microsoft.com][4])
 * Ensure the container (or pod) runs as a non-root user where possible. ([learn.microsoft.com][6])
 
 ### Policy-Level Security
@@ -172,27 +187,19 @@ sequenceDiagram
 
 ### Telemetry to Azure
 
-* SHGW supports sending metrics, logs and events to Azure Monitor / Log Analytics / Application Insights when connectivity to Azure is available. ([learn.microsoft.com][7])
-* Use container/cluster insights (e.g., Azure Monitor Container Insights) to monitor infrastructure underlying SHGW.
+* SHGW supports sending metrics, logs and events to Azure Monitor / Application Insights when connectivity to Azure is available. ([learn.microsoft.com][7])
+
 
 ### Local/Edge Monitoring
 
 * In offline or limited connectivity scenarios, consider employing local monitoring (Prometheus/Grafana) within the container/cluster to capture gateway traffic, errors and availability. This is a customer responsibility. ([learn.microsoft.com][7])
 
-### Distributed Tracing
-
-* APIM supports built-in correlation IDs and tracing. Ensure that policies like `trace` or `log-to-eventhub` (if used) are applied. For SHGW this behaviour mirrors the managed gateway; ensure backend instrumentation if full end-to-end tracing is required.
-
-### Diagnostics & Alerts
-
-* Setup alerts for high error rates, latency thresholds, number of open connections, and outage of config sync to help detect gateway issues.
-* Note: Some metrics (e.g., last config sync timestamp) may require custom log queries; review production deployment and support policy docs. ([learn.microsoft.com][7], [learn.microsoft.com][11])
 
 ---
 
 ## Policy Support and Limitations
 
-* According to Microsoft documentation, SHGW supports **all available policies in policy definitions**, **except** some listed limitations. ([learn.microsoft.com][8])
+* SHGW supports **all available policies in policy definitions**, **except** some listed limitations. ([learn.microsoft.com][8])
 * Unsupported policies and features on self-hosted gateway include:
 
   * **GraphQL resolvers & GraphQL validation**: Not supported on SHGW. ([learn.microsoft.com][8])
@@ -203,7 +210,6 @@ sequenceDiagram
   * **Azure OpenAI semantic caching**: Not supported.
   * **Credential manager**: Not supported.
 * Note: Configured policies that aren't supported by the self-hosted gateway are skipped during policy execution.
-* Statement: *"Some policies are supported and some are not — you should review the policy reference for SHGW limitations."*
 
 ---
 
@@ -229,46 +235,30 @@ APPLIES TO: Classic Developer & Premium tiers only. ([learn.microsoft.com][11])
 
 ---
 
----
-
 ## Cost Model & Sizing
 
 ### Pricing Fundamentals
 
-The Azure API Management pricing page indicates the **Self-Hosted Gateway feature is only available in classic Developer and Premium tiers**. In the **Developer tier**, the self-hosted gateway feature is available at **no additional cost** (unlimited deployments but restricted to a single gateway replica). In the **Premium tier**, the self-hosted gateway feature is available at an **additional cost**. ([azure.microsoft.com][10])
+**Self-Hosted Gateway feature is only available in classic Developer and Premium tiers**. In the **Developer tier**, the self-hosted gateway feature is available at **no additional cost** (unlimited deployments but restricted to a single gateway replica). In the **Premium tier**, the self-hosted gateway feature is available at an **additional cost**. ([azure.microsoft.com][10])
 
 Classic v2 tiers (Basic v2, Standard v2, Premium v2) explicitly list “Self-hosted gateway: No” (unsupported), so there is currently **no v2 pricing dimension** for SHGW deployments. ([learn.microsoft.com][12])
 
 ### Cost Components
 
-| Cost Component | Description | Applies When |
-| -------------- | ----------- | ------------ |
-| APIM Tier Subscription | Base monthly cost for chosen APIM instance tier (Developer for dev/test, Premium for enterprise). | Always (per APIM instance) |
-| Self-Hosted Gateway Feature | Developer: No additional cost (single replica limit). Premium: Additional cost per gateway. | Developer / Premium classic |
-| Container / VM Infra | Compute, storage, and networking for SHGW replicas (on-prem, AKS, Arc, other clouds). | Each deployment |
-| Telemetry & Logs | Log Analytics / Application Insights ingestion + retention. Consider sampling to optimize. | If sending telemetry |
-| Network Egress | Data leaving on-prem / VNet to Azure or cross-region; depends on traffic & backend placement. | When crossing boundaries |
-| High Availability Overhead | Additional replicas, zones, failover clusters increase infra & logging cost. | HA / multi-zone setups |
-| Security & Secrets | Optional Key Vault access, certificate management, image scanning tooling. | If adopted |
 
-### Key Cost Drivers
+| Component | Classic Developer Tier | Classic Premium Tier | Notes |
+| --------- | ---------------------- | -------------------- | ----- |
+| APIM base subscription | $48.04/mo (example US) | $2,795.17/mo (first unit, example US) | Region/currency varies; Premium scales by units (additional units ~50% cost). |
+| Self-Hosted Gateway deployment | Included (no extra fee, single replica limit) | $250.01/mo per self-hosted gateway deployment | From pricing page Gateway section; multiply by number of distinct deployments/sites. |
+| Container / VM infrastructure | Customer provided | Customer provided | Kubernetes/VM nodes, storage, network — scale with replicas & traffic. |
+| Telemetry & logs | Log ingestion billed | Log ingestion billed | Application Insights / Log Analytics retention adds cost; sampling reduces spend. |
+| Network egress | Based on traffic | Based on traffic | Cross-region or cloud egress charged; on-prem to Azure config sync negligible (low volume). |
+| High availability overhead | More infra replicas | More infra replicas + possible multi-region gateways | Each extra site adds gateway deployment fee (Premium) + infra/log cost. |
 
-1. Replica count (horizontal scale for throughput / availability).
-2. Traffic volume through gateway (affects infra sizing + telemetry ingestion volumes).
-3. Log and metric retention periods (longer retention increases analytics cost).
-4. Architecture choices (single region vs multi-region, edge POP aggregation, ingress controller overhead).
-5. (Reserved for additional architectural factors such as multi-region traffic governance outside scope of this core cost model.)
+#### Self-Hosted Gateway Pricing Notes
 
-### Example Estimation (Conceptual)
-
-Assume: Premium tier (base cost) + 3 Kubernetes replicas (2 vCPU / 4 GB RAM each) + moderate telemetry.
-
-Monthly cost sketch (illustrative – use calculator for real numbers):
-
-* APIM Premium base: (see pricing table – region specific) ([azure.microsoft.com][10])
-* Infra: 3× container node share (on-prem sunk cost or AKS node pricing)
-* Logging: Volume driven (e.g., agg 20 GB/month × Log Analytics ingestion rate)
-
+* Developer tier self-hosted gateway: functionally free (included) but constrained (e.g., single replica) and not for production scale.
+* Premium tier: each distinct self-hosted gateway deployment (e.g., per on-prem site, per secondary cloud region) incurs $250.01/mo.
 
 ---
 
@@ -306,53 +296,7 @@ Monthly cost sketch (illustrative – use calculator for real numbers):
 
 ## Appendices
 
-### Appendix A: Mermaid Diagrams
-
-#### A1) High-level flow
-
-```mermaid
-flowchart LR
-  %% Appendix A1 diagram (corrected syntax)
-  subgraph OnPrem[On-Prem / Edge]
-    Client[Client]
-    SHGW[Self-Hosted Gateway]
-    Backend[(API Backend)]
-  end
-  subgraph Azure[Azure]
-    APIM[(API Management Instance)]
-  end
-
-  Client -->|HTTPS API Call| SHGW
-  SHGW -->|Policies • Transform • Auth| Backend
-  SHGW -->|Outbound 443 HTTPS: Config & Telemetry| APIM
-
-  classDef azure fill:#e3f2fd,stroke:#0366d6,color:#000
-  classDef onprem fill:#f5f5f5,stroke:#555,color:#000
-  class APIM azure
-  class SHGW,Client,Backend onprem
-```
-
-#### A2) Entra ID authentication sequence
-
-```mermaid
-sequenceDiagram
-  participant SHGW as Self-Hosted Gateway
-  participant Entra as Azure Entra ID
-  participant APIM as Azure API Management (Mgmt Plane)
-
-  SHGW->>Entra: Request token (client credentials / cert)
-  Entra-->>SHGW: Return access token
-  SHGW->>APIM: Authenticate & fetch configuration
-  APIM-->>SHGW: Return config & policies
-```
-
-### Appendix B: OS Support Summary
-
-| OS/Platform                         | Supported Status                        |
-| ----------------------------------- | --------------------------------------- |
-| Linux containers                    | Fully supported (primary)               |
-
-### Appendix C: References & Further Reading
+### Appendix A: References & Further Reading
 
 * “Self-hosted gateway overview” – Microsoft Learn ([learn.microsoft.com][1])
 * “Deploy self-hosted gateway on Kubernetes in production” – Microsoft Learn ([learn.microsoft.com][7])
