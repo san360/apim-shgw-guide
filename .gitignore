@@ -1,0 +1,33 @@
+# General
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
+~$*
+
+# Node / tooling (if later added)
+node_modules/
+coverage/
+dist/
+
+# Editors / IDE
+.vscode/
+.idea/
+*.code-workspace
+
+# Python (future-proof)
+__pycache__/
+*.pyc
+
+# OS
+ehthumbs.db
+Icon?
+
+# Archives
+*.zip
+*.tar
+*.tar.gz
+
+# Local environment files
+.env
+.env.*
