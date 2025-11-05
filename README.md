@@ -43,6 +43,37 @@ flowchart LR
   class SHGW,Client,Backend onprem
 ```
 
+#### AKS deployment view
+
+```mermaid
+flowchart LR
+  %% Azure APIM Self-Hosted Gateway deployed in AKS (image-derived)
+  %% Left: Managed Kubernetes (AKS) cluster; Right: Azure API Management control/gateway plane
+  subgraph AKS[Managed Kubernetes (AKS)]
+    subgraph Pods[Application Pods]
+      PodA[(App Pod)]
+      PodB[(App Pod)]
+    end
+    MicroSvc[AKS Service (Microservice)]
+    SHGW_AKS[APIM Self-Hosted Gateway]
+  end
+  subgraph Azure[Azure API Management]
+    APIMGW[API Management Gateway]
+  end
+
+  PodA --> MicroSvc
+  PodB --> MicroSvc
+  SHGW_AKS --> MicroSvc
+  SHGW_AKS -->|Outbound config & telemetry| APIMGW
+  APIMGW -->|Policies & config updates| SHGW_AKS
+
+  %% Styling
+  classDef aks fill:#f5f5ff,stroke:#6e44ad,color:#000
+  classDef azure fill:#e3f2fd,stroke:#0366d6,color:#000
+  class AKS,Pods,MicroSvc,SHGW_AKS aks
+  class Azure,APIMGW azure
+```
+
 ### Key notes
 
 * Self-hosted gateway is packaged as a **Linux-based Docker container image** and is intended for containerised environments (Kubernetes, Docker, or any other container orchestration solution). ([learn.microsoft.com][1])
@@ -59,15 +90,14 @@ flowchart LR
 ### Host / Container Runtime Requirements
 
 * Primary support: **Linux container environments** (Docker, Kubernetes). SHGW is provided as a Linux-based container. ([learn.microsoft.com][1])
-* Minimum baseline sizing suggestion: start with 2 vCPUs and 2–4 GB RAM, then benchmark and scale replicas based on throughput & latency targets. (Guided by production deployment considerations – see [Kubernetes production][6])
+* Minimum baseline sizing suggestion: start with 2 vCPUs and 2 GB RAM, then benchmark and scale replicas based on throughput & latency targets. (Guided by production deployment considerations – see [Kubernetes production][6])
 
 ### Network & Connectivity
 
 * The self-hosted gateway container must have outbound HTTPS (TCP 443) connectivity to Azure API Management configuration endpoints to pull API/policy configuration and send telemetry. ([learn.microsoft.com][13])
 * Only outbound connectivity from the self-hosted gateway to Azure is required; Azure does not initiate inbound connections to the gateway for config sync.
-* Proper DNS resolution of Azure API Management endpoint hostnames is required (for example regional configuration endpoints). If using custom DNS, ensure those names resolve internally.
-* When deployed in a private network / VNet / behind a firewall, allow outbound 443 and required proxy settings (HTTP_PROXY / HTTPS_PROXY / NO_PROXY) if an egress proxy is used.
-* References to the managed APIM instance are solely for the purpose of configuration & telemetry exchange; this section concerns the self-hosted gateway runtime only.
+* Proper DNS resolution of Azure API Management configuration endpoint hostnames is required.
+* When deployed in a private network / VNet / behind a firewall, allow outbound 443 and required proxy settings (HTTP_PROXY / HTTPS_PROXY / NO_PROXY) if an egress proxy is used. (SHGW could also be deployed in AKS/ACA/Appservice)
 
 ### Provisioning a Gateway Resource
 
@@ -110,7 +140,6 @@ Since your focus is containerised environments, here are the supported types:
 
 * **Access Token**: A gateway access key/token is generated and used by the SHGW to authenticate to APIM’s configuration endpoint. The token expires (typically 30 days) and must be refreshed. ([learn.microsoft.com][7])
 * **Azure Entra ID (AAD) App Authentication**: Supported alternative to access token. You can create an Azure Entra app (service principal), assign custom roles (Gateway Configuration Reader, etc), and use that for auth. This enables longer-lived secrets and better identity/security. ([learn.microsoft.com][4])
-* Other IdPs: The documentation shows support only for Azure Entra/ AAD for the control‐plane auth; no generic other IdP is documented for SHGW → APIM. So you should assume AAD only.
 
 ### 2) Client → Gateway (Data Plane)
 
