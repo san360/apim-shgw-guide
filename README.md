@@ -1,7 +1,3 @@
-Great — thanks for confirming. I’ll proceed with the full Markdown document. Below is your requested guide for Azure API Management Self‑Hosted Gateway (SHGW). You can copy-paste it; I included headers, diagrams (Mermaid), details, and citations to Microsoft doc sources.
-
----
-
 # Azure API Management – Self-Hosted Gateway (SHGW)
 
 *A hybrid / on-premises deployment guide*
